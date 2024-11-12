@@ -20,12 +20,11 @@ SCL3300 inclinometer;
 //#endif
 
 void setup() {
-  Serial.begin(9600);
+  Serial.begin(19200);
   delay(2000); //SAMD boards may need a long time to init SerialUSB
   Serial.println("Reading basic Tilt Level Offset values from SCL3300 Inclinometer");
 
     // Initialize the SPI and SCL3300 sensor
-
   SPI1.setSCK(SCL3300_SCK);
   SPI1.setCS(SCL3300_CS);
   SPI1.setRX(SCL3300_MISO);
