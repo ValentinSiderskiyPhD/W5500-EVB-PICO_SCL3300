@@ -1,3 +1,10 @@
+# W5500-EVB-PICO
+Example 11 was made for the W5500-EVB-PICO
+
+[To setup W5500-EVB-PICO on Arduino](https://github.com/earlephilhower/arduino-pico)
+
+Use Portable version of Arduino.
+
 # SCL3300
 
 
