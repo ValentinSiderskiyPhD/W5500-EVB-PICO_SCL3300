@@ -12,8 +12,8 @@ SCL3300 inclinometer;
 
 // Network configuration
 byte mac[] = { 0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED }; // Unique MAC address for your device
-IPAddress ip(192, 168, 0, 50); // Device's static IP address
-IPAddress destip(192, 168, 0, 3); // IP address of the server you want to send data to
+IPAddress ip(192, 168, 1, 50); // Device's static IP address
+IPAddress destip(192, 168, 1, 5); // IP address of the server you want to send data to
 
 unsigned int localPort = 16384;
 unsigned int destPort = 16384;
@@ -25,7 +25,6 @@ EthernetUDP Udp;
 
 void setup() {
 
-  //delay(1000); // Very important when using USB Wall Powersupply instead of a computer
   Serial.begin();  // Optional for debugging, not essential for UDP
   Serial.println("Reading basic Tilt Level Offset values from SCL3300 Inclinometer");
 
@@ -60,8 +59,9 @@ void loop() {
     delay(100); // Allow a little time for sensor reading
   } else inclinometer.reset();
 
-  sprintf(textstring_plot, "%f\t%f\t%f\n", incX, incY, incZ);
-  sprintf(textstring, "X:%f Y:%f Z:%f\n", incX, incY, incZ);
+  // Format the string with fixed-width fields
+  sprintf(textstring_plot, "%+07.3f\t%+07.3f\t%+07.3f\n", incX, incY, incZ);
+  sprintf(textstring, "X:%+07.3f Y:%+07.3f Z:%+07.3f\n", incX, incY, incZ);
   
   Udp.beginPacket(destip, destPort);
   Udp.write(textstring, strlen(textstring));
