@@ -5,6 +5,19 @@ Example 11 was made for the W5500-EVB-PICO
 
 Use Portable version of Arduino.
 
+# Using this library
+
+- Locate Your Arduino libraries Folder: c:\Users\sider\OneDrive\Documents\Arduino
+- Find the libraries folder inside your sketchbook folder. "C:\Users\sider\OneDrive\Documents\Arduino\libraries"
+Create a Symbolic Link:
+
+Use a terminal or command prompt to create a symbolic link (symlink) pointing to your Git-tracked library:
+On Windows:
+mklink /D "C:\Path\To\Arduino\libraries\MyLibrary" "C:\Path\To\Git\Repo\MyLibrary"
+
+mklink /D "C:\Users\sider\OneDrive\Documents\Arduino\libraries\SCL3300" "C:\Users\sider\Documents\GitHub\W5500-EVB-PICO_SCL3300\src"
+
+
 # SCL3300
 
 
