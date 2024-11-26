@@ -37,6 +37,17 @@ void setup() {
   if (inclinometer.begin(SPI1, SCL3300_CS) == false) {
     Serial.println("Murata SCL3300 inclinometer not connected.");
     while(1); // Freeze if inclinometer is not connected
+  } else {
+    Serial.println("Murata SCL3300 inclinometer detected.");
+    // Put this inclinometer into Mode 1, since we are using it to measure 0-90 Degree angles
+    inclinometer.setMode(2);
+    if (inclinometer.begin()) {
+      Serial.println("Murata SCL3300 inclinometer now in Mode 1.");
+	  } else {
+      Serial.println("Tube Murata SCL3300 inclinometer failed to transition to Mode 1.");
+	    while(1); //Freeze
+	  }
+
   }
 
   Ethernet.init(17);
