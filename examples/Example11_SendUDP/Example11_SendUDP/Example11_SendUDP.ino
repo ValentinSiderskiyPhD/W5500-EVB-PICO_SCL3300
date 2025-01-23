@@ -39,12 +39,12 @@ void setup() {
     while(1); // Freeze if inclinometer is not connected
   } else {
     Serial.println("Murata SCL3300 inclinometer detected.");
-    // Put this inclinometer into Mode 1, since we are using it to measure 0-90 Degree angles
+    // Put this inclinometer into Mode 2, since we are using it to measure 0-90 Degree angles
     inclinometer.setMode(2);
     if (inclinometer.begin()) {
-      Serial.println("Murata SCL3300 inclinometer now in Mode 1.");
+      Serial.println("Murata SCL3300 inclinometer now in Mode 2.");
 	  } else {
-      Serial.println("Tube Murata SCL3300 inclinometer failed to transition to Mode 1.");
+      Serial.println("Tube Murata SCL3300 inclinometer failed to transition to Mode 2.");
 	    while(1); //Freeze
 	  }
 
@@ -67,7 +67,7 @@ void loop() {
     incX = inclinometer.getTiltLevelOffsetAngleX();
     incY = inclinometer.getTiltLevelOffsetAngleY();
     incZ = inclinometer.getTiltLevelOffsetAngleZ();
-    delay(100); // Allow a little time for sensor reading
+    delay(14); // Allow a little time for sensor reading (70Hz ideal)
   } else inclinometer.reset();
 
   // Format the string with fixed-width fields
@@ -81,5 +81,5 @@ void loop() {
   Serial.print(textstring_plot);  // Optional for debugging, not essential for UDP
   counter += 1;
  
-  delay(100);
+ // delay(100);
 }
