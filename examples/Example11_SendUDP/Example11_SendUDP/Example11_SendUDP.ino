@@ -12,8 +12,8 @@ SCL3300 inclinometer;
 
 // Network configuration
 byte mac[] = { 0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED }; // Unique MAC address for your device
-IPAddress ip(192, 168, 1, 50); // Device's static IP address
-IPAddress destip(192, 168, 1, 5); // IP address of the server you want to send data to
+IPAddress ip(192, 168, 1, 50); // Device's static IP address.
+IPAddress destip(192, 168, 1, 255); // IP address of the server you want to send data to, 255 broadcast
 
 unsigned int localPort = 16384;
 unsigned int destPort = 16384;
