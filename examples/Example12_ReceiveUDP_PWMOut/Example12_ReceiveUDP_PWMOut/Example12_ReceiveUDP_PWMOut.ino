@@ -71,6 +71,7 @@ uint8_t angleToDutyCycle(float angle) {
 void setup() {
   // Start Serial early for diagnostics (no blocking wait)
   Serial.begin(9600);
+  delay(2000);
   Serial.println("UDP->PWM Receiver Booting...");
 
   // Print the angle-to-voltage mapping at startup for quick reference

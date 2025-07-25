@@ -24,8 +24,8 @@ double incZ = 0;
 EthernetUDP Udp;
 
 void setup() {
-
   Serial.begin();  // Optional for debugging, not essential for UDP
+  delay(2000);     // instead of while
   Serial.println("Reading basic Tilt Level Offset values from SCL3300 Inclinometer");
 
   // Initialize the SPI and SCL3300 sensor
