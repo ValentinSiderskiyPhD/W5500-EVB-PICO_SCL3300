@@ -3,16 +3,33 @@
 
   Hardware Setup:
   - W5500-EVB-Pico running this sketch; static IP wired Ethernet
-  - PWM outputs on:
-      GPIO15 -> X-axis PWM -> RC filter -> Op-amp buffer -> BNC -> LabChart
-      GPIO16 -> Y-axis PWM -> RC filter -> Op-amp buffer -> BNC -> LabChart
-      GPIO17 -> Z-axis PWM -> RC filter -> Op-amp buffer -> BNC -> LabChart
+  - PWM outputs on GPIO pins (15, 16, 17) for X, Y, Z axes
 
-  RC Filter Options (cutoff ≈150 Hz for 70 Hz updates, 30 kHz PWM):
-    1) R = 10 kΩ, C = 100 nF  -> f_c ≈ 159 Hz (simple, easy parts)
-    2) R = 4.7 kΩ, C = 220 nF -> f_c ≈ 154 Hz (lower output impedance)
-    3) R = 2.2 kΩ, C = 470 nF -> f_c ≈ 154 Hz (stronger drive)
-  - Optional: cascade two identical RC stages for 2nd-order (–40 dB/decade)
+  RC Filter Connection (per axis):
+      PWM_PIN ---- R ---- filter_node ----> Op-amp buffer input
+                               |
+                               C
+                               |
+                              GND
+
+  RC Filter Options (f_c ≈150 Hz for 70 Hz updates, 30 kHz PWM):
+    1) R = 10 kΩ, C = 100 nF  -> f_c ≈159 Hz
+       • Pros: Common values, small caps, easy tuning
+       • Cons: 10 kΩ source impedance (rise ~2.2 ms), may sag under load
+    2) R = 4.7 kΩ, C = 220 nF -> f_c ≈154 Hz
+       • Pros: Lower impedance (~4.7 kΩ), better drive for moderate loads
+       • Cons: Slightly larger cap footprint
+    3) R = 2.2 kΩ, C = 470 nF -> f_c ≈154 Hz
+       • Pros: Strong drive (2.2 kΩ source), robust for long cables
+       • Cons: Bulky cap, less common value
+
+  If omitting op-amp buffer:
+    • RC filter output (source impedance = R) drives PowerLab directly.
+    • PowerLab's ≈1 MΩ input lightly loads the RC, preserving linearity.
+    • Lower R (e.g., 2.2 kΩ) recommended to minimize rise time and noise.
+
+  Optional: Cascade two identical RC stages for 2nd-order (–40 dB/decade)
+  roll-off (double response time ~4–5 ms) for extra PWM ripple suppression.
 */
 
 #include <SPI.h>
@@ -20,17 +37,18 @@
 #include <EthernetUdp.h>
 
 // ——— NETWORK SETTINGS ———
-byte   mac[]       = { 0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED };
-IPAddress ip       = { 192, 168, 1, 101 };  // this board’s static IP
-unsigned int localPort = 5000;             // must match sender’s port
+// Note: Each W5500 device must have a unique MAC on the network.
+byte   mac[]        = { 0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED };
+IPAddress ip        = { 192, 168, 1, 101 };  // this board’s static IP
+unsigned int localPort = 16384;              // must match sender’s destPort
 
 EthernetUDP Udp;
 char packetBuffer[UDP_TX_PACKET_MAX_SIZE];
 
 // ——— PWM PINS ———
-const int pwmPinX = 15;  // X-axis PWM output
-const int pwmPinY = 16;  // Y-axis PWM output
-const int pwmPinZ = 17;  // Z-axis PWM output
+const int pwmPinX = 14;  // X-axis PWM output
+const int pwmPinY = 15;  // Y-axis PWM output
+const int pwmPinZ = 11;  // Z-axis PWM output
 
 // ——— MAPPING CONSTANTS ———
 const float V_ZERO = 1.0f;           // voltage at 0°  (1 V)
@@ -51,19 +69,38 @@ uint8_t angleToDutyCycle(float angle) {
 }
 
 void setup() {
-  Serial.begin(115200);
-  while (!Serial);
+  // Start Serial early for diagnostics (no blocking wait)
+  Serial.begin(9600);
+  Serial.println("UDP->PWM Receiver Booting...");
 
-  // bring up Ethernet & UDP
+  // Print the angle-to-voltage mapping at startup for quick reference
+  Serial.printf("Mapping: 0° -> %.3f V; 90° -> %.3f V; slope = %.5f V/°", V_ZERO, V_ZERO + 90.0f * SLOPE, SLOPE);
+
+  // Initialize Ethernet hardware (W5500)
+  Ethernet.init(17);  // CS pin for W5500
   Ethernet.begin(mac, ip);
-  Udp.begin(localPort);
-  Serial.println("UDP→PWM receiver ready");
+  if (Ethernet.hardwareStatus() == EthernetNoHardware) {
+    Serial.println("Error: Ethernet hardware not found!");
+  } else {
+    Serial.print("Ethernet OK. IP: ");
+    Serial.println(Ethernet.localIP());
+    if (Ethernet.linkStatus() == LinkOFF) {
+      Serial.println("Warning: Ethernet cable not connected.");
+    } else {
+      Serial.println("Ethernet link up.");
+    }
+  }
 
-  // Print the angle-to-voltage mapping for user reference
-  Serial.printf("Mapping: 0° -> %.3f V; 90° -> %.3f V; slope = %.5f V/°\n", \
+  // Start UDP listener
+  Udp.begin(localPort);
+  Serial.print("Listening for UDP on port ");
+  Serial.println(localPort);
+
+  // Print the angle-to-voltage mapping for reference
+  Serial.printf("Mapping: 0° -> %.3f V; 90° -> %.3f V; slope = %.5f V/°\n",
                 V_ZERO, V_ZERO + 90.0f * SLOPE, SLOPE);
 
-  // configure 8-bit PWM outputs
+  // Configure PWM outputs
   analogWriteResolution(8);
   pinMode(pwmPinX, OUTPUT);
   pinMode(pwmPinY, OUTPUT);
@@ -73,25 +110,22 @@ void setup() {
 void loop() {
   int packetSize = Udp.parsePacket();
   if (packetSize > 0) {
-    // read UDP payload
     int len = Udp.read(packetBuffer, sizeof(packetBuffer) - 1);
     packetBuffer[len] = '\0';
 
-    Serial.print("RAW RX: "); Serial.println(packetBuffer);
+    Serial.print("RAW RX: ");
+    Serial.println(packetBuffer);
 
     float incX, incY, incZ;
     if (sscanf(packetBuffer, "X:%f Y:%f Z:%f", &incX, &incY, &incZ) == 3) {
-      // compute volts (for logging)
       float voltsX = V_ZERO + incX * SLOPE;
       float voltsY = V_ZERO + incY * SLOPE;
       float voltsZ = V_ZERO + incZ * SLOPE;
 
-      // compute PWM duties
       uint8_t dutyX = angleToDutyCycle(incX);
       uint8_t dutyY = angleToDutyCycle(incY);
       uint8_t dutyZ = angleToDutyCycle(incZ);
 
-      // log angle -> voltage -> PWM
       Serial.printf(
         "X=%.3f° -> %.3f V -> PWM %u\n"
         "Y=%.3f° -> %.3f V -> PWM %u\n"
@@ -101,7 +135,6 @@ void loop() {
         incZ, voltsZ, dutyZ
       );
 
-      // output PWM
       analogWrite(pwmPinX, dutyX);
       analogWrite(pwmPinY, dutyY);
       analogWrite(pwmPinZ, dutyZ);
