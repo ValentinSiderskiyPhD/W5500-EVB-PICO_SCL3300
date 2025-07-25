@@ -38,7 +38,7 @@
 
 // ——— NETWORK SETTINGS ———
 // Note: Each W5500 device must have a unique MAC on the network.
-byte   mac[]        = { 0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED };
+byte   mac[]        = { 0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xEE };
 IPAddress ip        = { 192, 168, 1, 101 };  // this board’s static IP
 unsigned int localPort = 16384;              // must match sender’s destPort
 
