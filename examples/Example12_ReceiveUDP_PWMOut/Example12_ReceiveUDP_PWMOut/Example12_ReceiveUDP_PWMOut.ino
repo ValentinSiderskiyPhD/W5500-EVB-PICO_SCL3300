@@ -43,7 +43,7 @@ IPAddress ip        = { 192, 168, 1, 101 };  // this board’s static IP
 unsigned int localPort = 16384;              // must match sender’s destPort
 
 EthernetUDP Udp;
-char packetBuffer[UDP_TX_PACKET_MAX_SIZE];
+char packetBuffer[64];
 
 // ——— PWM PINS ———
 const int pwmPinX = 14;  // X-axis PWM output
