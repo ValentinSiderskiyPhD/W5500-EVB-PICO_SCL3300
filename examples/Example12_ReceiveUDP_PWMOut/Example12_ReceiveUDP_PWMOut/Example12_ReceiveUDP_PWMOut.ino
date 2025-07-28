@@ -37,6 +37,11 @@
 #include <EthernetUdp.h>
 #include "hardware/pwm.h"
 
+// ——— PWM RESOLUTION ———
+typedef uint32_t pwm_level_t;
+const uint8_t PWM_BITS = 11;  // global PWM bit-depth (11 bits)                   // global PWM bit-depth
+const pwm_level_t PWM_TOP = (1UL << PWM_BITS) - 1;  // top value for wrap
+
 // ——— NETWORK SETTINGS ———
 // Note: Each W5500 device must have a unique MAC on the network.
 byte   mac[]        = { 0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xEE };
@@ -58,28 +63,26 @@ const float SLOPE  = -1.0f / 90.0f;    // 1/90 V per degree
 
 
 /**
- * Map any tilt angle (°) to 8-bit PWM duty (0–255):
+ * Map any tilt angle (°) to PWM level (0–PWM_TOP):
  *   volts = V_ZERO + angle * SLOPE
- * Then clamp volts to [0, V_REF] before scaling.
+ * Then clamp volts to [0, V_REF] and scale to PWM_TOP.
  */
-uint8_t angleToDutyCycle(float angle) {
+pwm_level_t angleToDutyCycle(float angle) {
   float volts = V_ZERO + angle * SLOPE;
-  // clamp to hardware limits
   if (volts < 0.0f) volts = 0.0f;
   if (volts > V_REF) volts = V_REF;
-  return (uint8_t)((volts / V_REF) * 255.0f + 0.5f);
+  return (pwm_level_t)((volts / V_REF) * PWM_TOP + 0.5f);
 }
 
-// Configure each pin for 8‑bit PWM at exactly ~250 kHz
+
+
+// Configure each pin for hardware PWM at fixed resolution and ~250 kHz carrier
 void setupFastPWM(int pin) {
   gpio_set_function(pin, GPIO_FUNC_PWM);
   uint slice = pwm_gpio_to_slice_num(pin);
-  pwm_set_wrap(slice, 255);  // 8‑bit resolution (0–255)
-
-  // Dynamically compute divider for 250 kHz based on actual sysclk
-  float sysclk = (float)clock_get_hz(clk_sys);
-  pwm_set_clkdiv(slice, sysclk / (250000.0f * 256.0f)); // 250 kHz
-
+  pwm_set_wrap(slice, PWM_TOP);
+  // For zero jitter at 11 bits, use divider=1 (wrap+1=2048 → 200MHz/2048≈97.656kHz)
+  pwm_set_clkdiv_int_frac(slice, 1, 0);
   pwm_set_enabled(slice, true);
 }
 
@@ -143,9 +146,9 @@ void loop() {
       float voltsY = V_ZERO + incY * SLOPE;
       float voltsZ = V_ZERO + incZ * SLOPE;
 
-      uint8_t dutyX = angleToDutyCycle(incX);
-      uint8_t dutyY = angleToDutyCycle(incY);
-      uint8_t dutyZ = angleToDutyCycle(incZ);
+      pwm_level_t dutyX = angleToDutyCycle(incX);
+      pwm_level_t dutyY = angleToDutyCycle(incY);
+      pwm_level_t dutyZ = angleToDutyCycle(incZ);
 
       Serial.printf(
         "X=%.3f° -> %.3f V -> PWM %u\n"
