@@ -19,7 +19,7 @@
     2) R = 4.7 kΩ, C = 220 nF -> f_c ≈154 Hz
        • Pros: Lower impedance (~4.7 kΩ), better drive for moderate loads
        • Cons: Slightly larger cap footprint
-    3) R = 2.2 kΩ, C = 470 nF -> f_c ≈154 Hz
+    3) R = 2.2 kΩ, C = 470 nF -> f_c ≈154 Hz  -> This one
        • Pros: Strong drive (2.2 kΩ source), robust for long cables
        • Cons: Bulky cap, less common value
 
@@ -35,6 +35,7 @@
 #include <SPI.h>
 #include <Ethernet.h>
 #include <EthernetUdp.h>
+#include "hardware/pwm.h"
 
 // ——— NETWORK SETTINGS ———
 // Note: Each W5500 device must have a unique MAC on the network.
@@ -51,9 +52,10 @@ const int pwmPinY = 15;  // Y-axis PWM output
 const int pwmPinZ = 11;  // Z-axis PWM output
 
 // ——— MAPPING CONSTANTS ———
-const float V_ZERO = 1.0f;           // voltage at 0°  (1 V)
+const float V_ZERO = 1.0f;           // voltage at 0°  (0 V)
 const float V_REF  = 3.3f;           // PWM full-scale (3.3 V)
-const float SLOPE  = (2.0f - V_ZERO) / 90.0f;  // (2V - 1V)/90° = 1/90 V per degree
+const float SLOPE  = -1.0f / 90.0f;    // 1/90 V per degree
+
 
 /**
  * Map any tilt angle (°) to 8-bit PWM duty (0–255):
@@ -68,9 +70,22 @@ uint8_t angleToDutyCycle(float angle) {
   return (uint8_t)((volts / V_REF) * 255.0f + 0.5f);
 }
 
+// Configure each pin for 8‑bit PWM at exactly ~250 kHz
+void setupFastPWM(int pin) {
+  gpio_set_function(pin, GPIO_FUNC_PWM);
+  uint slice = pwm_gpio_to_slice_num(pin);
+  pwm_set_wrap(slice, 255);  // 8‑bit resolution (0–255)
+
+  // Dynamically compute divider for 250 kHz based on actual sysclk
+  float sysclk = (float)clock_get_hz(clk_sys);
+  pwm_set_clkdiv(slice, sysclk / (250000.0f * 256.0f)); // 250 kHz
+
+  pwm_set_enabled(slice, true);
+}
+
 void setup() {
   // Start Serial early for diagnostics (no blocking wait)
-  Serial.begin(9600);
+  Serial.begin(2000000);
   delay(2000);
   Serial.println("UDP->PWM Receiver Booting...");
 
@@ -102,10 +117,15 @@ void setup() {
                 V_ZERO, V_ZERO + 90.0f * SLOPE, SLOPE);
 
   // Configure PWM outputs
-  analogWriteResolution(8);
+  analogWriteResolution(10);
   pinMode(pwmPinX, OUTPUT);
   pinMode(pwmPinY, OUTPUT);
   pinMode(pwmPinZ, OUTPUT);
+
+setupFastPWM(pwmPinX);
+setupFastPWM(pwmPinY);
+setupFastPWM(pwmPinZ);
+
 }
 
 void loop() {
@@ -136,9 +156,9 @@ void loop() {
         incZ, voltsZ, dutyZ
       );
 
-      analogWrite(pwmPinX, dutyX);
-      analogWrite(pwmPinY, dutyY);
-      analogWrite(pwmPinZ, dutyZ);
+      pwm_set_gpio_level(pwmPinX, dutyX);
+      pwm_set_gpio_level(pwmPinY, dutyY);
+      pwm_set_gpio_level(pwmPinZ, dutyZ);
     } else {
       Serial.println("!!! parse error");
     }
